@@ -1,25 +1,12 @@
 import telebot
-import threading
-from telebot import types
 import sqlite3
-import json
 import requests
-import time
 import os
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-
 bot = telebot.TeleBot(TOKEN)
 
 DATABASE = "data/metallica.db"
-
-INVIDIOUS_INSTANCES = [
-    "yewtu.be",
-    "invidious.snopyta.org",
-    "invidious.kavin.rocks",
-    "invidious.tube",
-    "invidious.jingl.xyz",
-]
 
 def init_db():
     conn = sqlite3.connect(DATABASE)
@@ -33,116 +20,93 @@ def init_db():
                   tour_name TEXT,
                   venue TEXT,
                   duration_seconds INTEGER,
-                  quality_tags TEXT,
-                  date_event TEXT)''')
+                  quality_tags TEXT)''')
     conn.commit()
     conn.close()
 
-def get_concerts():
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
-    c.execute("SELECT * FROM videos WHERE content_type='concert' ORDER BY date_event DESC LIMIT 10")
-    rows = c.fetchall()
-    conn.close()
-    return rows
-
-def get_interviews():
-    conn = sqlite3.connect(DATABASE)
-    c = conn.cursor()
-    c.execute("SELECT * FROM videos WHERE content_type='interview' ORDER BY date_event DESC LIMIT 10")
-    rows = c.fetchall()
-    conn.close()
-    return rows
-
-def search_youtube(query, max_results=10):
-    print(f"Searching for: {query}")
-    
-    for instance in INVIDIOUS_INSTANCES:
-        try:
-            url = f"https://{instance}/api/v1/search"
-            params = {"q": query, "type": "video", "max_results": max_results}
-            print(f"Trying: {instance}")
+def search_youtube(query):
+    """Поиск через RSS ленту YouTube"""
+    try:
+        url = f"https://www.youtube.com/results?search_query=Metallica+{query.replace(' ', '+')}&sp=EgIYAQ%253D%253D"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            import re
+            videos = []
             
-            response = requests.get(url, params=params, timeout=15)
-            print(f"Response status: {response.status_code}")
+            # Ищем видео в HTML
+            pattern = r'"videoId":"([^"]+)"'
+            ids = re.findall(pattern, response.text)
             
-            if response.status_code == 200:
-                data = response.json()
-                print(f"Found {len(data)} results")
-                
-                videos = []
-                for item in data:
-                    if item.get("type") == "video":
-                        duration = item.get("lengthSeconds", 0)
-                        title = item.get("title", "")
-                        
-                        content_type = "concert"
-                        keywords_interview = ["interview", "talk", "conversation", "q&a", "press conference"]
-                        
-                        if any(kw in title.lower() for kw in keywords_interview):
-                            content_type = "interview"
-                        
-                        tour_name = detect_tour(title)
-                        
-                        videos.append({
-                            "youtube_id": item.get("videoId"),
-                            "title": title,
-                            "url": f"https://www.youtube.com/watch?v={item.get('videoId')}",
-                            "content_type": content_type,
-                            "tour_name": tour_name,
-                            "duration_seconds": duration,
-                            "quality_tags": "HD" if duration > 1800 else "SD"
-                        })
-                
-                if videos:
-                    return videos
+            pattern_title = r'"title":{"runs":\[{"text":"([^"]+)"'
+            titles = re.findall(pattern_title, response.text)
+            
+            pattern_duration = r'"lengthText":{"simpleText":"([^"]+)"'
+            durations = re.findall(pattern_duration, response.text)
+            
+            for i, vid_id in enumerate(ids[:10]):
+                if vid_id:
+                    title = titles[i] if i < len(titles) else "Metallica Video"
+                    duration = parse_duration(durations[i]) if i < len(durations) else 0
                     
-        except Exception as e:
-            print(f"Error with {instance}: {e}")
-            continue
-    
+                    # Определяем тип
+                    content_type = "concert"
+                    if any(kw in title.lower() for kw in ["interview", "talk", "conversation", "q&a"]):
+                        content_type = "interview"
+                    
+                    # Определяем тур
+                    tour = detect_tour(title)
+                    
+                    videos.append({
+                        "youtube_id": vid_id,
+                        "title": title,
+                        "url": f"https://www.youtube.com/watch?v={vid_id}",
+                        "content_type": content_type,
+                        "tour_name": tour,
+                        "duration_seconds": duration,
+                        "quality_tags": "HD" if duration > 1800 else "SD"
+                    })
+            
+            return videos
+    except Exception as e:
+        print(f"Search error: {e}")
     return []
 
-def search_youtube_fallback(query):
-    print(f"Fallback search for: {query}")
-    
-    search_queries = [
-        f"Metallica {query} full concert",
-        f"Metallica {query} live",
-        f"Metallica {query} performance"
-    ]
-    
-    for sq in search_queries:
-        videos = search_youtube(sq, 5)
-        if videos:
-            return videos
-    
-    return []
+def parse_duration(duration_str):
+    """Парсинг длительности вида '1:23:45' или '23:45'"""
+    try:
+        parts = duration_str.split(':')
+        if len(parts) == 3:
+            return int(parts[0])*3600 + int(parts[1])*60 + int(parts[2])
+        elif len(parts) == 2:
+            return int(parts[0])*60 + int(parts[1])
+        return 0
+    except:
+        return 0
 
 def detect_tour(title):
     title_lower = title.lower()
     tours = {
-        "M72 World Tour": ["m72", "72 tour", "no repeat"],
-        "WorldWired Tour": ["worldwired", "world wired", "hardwired to self-destruct"],
+        "M72 World Tour": ["m72", "72 tour"],
+        "WorldWired Tour": ["worldwired", "world wired", "hardwired"],
         "World Magnetic Tour": ["world magnetic", "death magnetic"],
-        "Black Album Tour": ["black album", "self-titled"],
+        "Black Album Tour": ["black album"],
         "St. Anger Tour": ["st anger", "st. anger"],
-        "Load Tour": ["load tour", "load era"],
-        "ReLoad Tour": ["reload tour", "reload era"],
-        "Garage Inc. Tour": ["garage inc"],
-        "Justice Tour": ["and justice for all", "justice tour"],
-        "Master of Puppets Tour": ["master of puppets", "puppets tour"],
-        "Ride the Lightning Tour": ["ride the lightning", "lightning tour"],
-        "Kill 'Em All Tour": ["kill 'em all", "kill em all"],
+        "Load Tour": ["load tour"],
+        "ReLoad Tour": ["reload tour"],
+        "Garage Inc.": ["garage inc"],
+        "Master of Puppets": ["master of puppets"],
+        "Ride the Lightning": ["ride the lightning"],
+        "Kill 'Em All": ["kill 'em all", "kill em all"],
     }
-    
     for tour, keywords in tours.items():
         for kw in keywords:
             if kw in title_lower:
                 return tour
-    return None
+    return "Metallica"
 
-def save_video_to_db(video):
+def save_video(video):
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
     try:
@@ -153,10 +117,6 @@ def save_video_to_db(video):
                     video['content_type'], video.get('tour_name'), 
                     video.get('duration_seconds', 0), video.get('quality_tags', '')))
         conn.commit()
-        return True
-    except Exception as e:
-        print(f"Save error: {e}")
-        return False
     finally:
         conn.close()
 
@@ -164,120 +124,96 @@ def format_video(video):
     duration = video.get('duration_seconds', 0)
     hours = duration // 3600
     minutes = (duration % 3600) // 60
-    
     tour = video.get('tour_name', 'Metallica')
-    quality = video.get('quality_tags', 'HD')
-    
     return f"""🎸 *{video['title']}*
-⏱️ {hours}:{minutes:02d} | 🏷️ {tour} | {quality}
+⏱️ {hours}:{minutes:02d} | 🏷️ {tour}
 🔗 [Смотреть]({video['url']})"""
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    text = """🎸 *Metallica Archive Bot*
-
-Бот для поиска концертов и интервью Metallica!
+    bot.send_message(message.chat.id, """🎸 *Metallica Archive Bot*
 
 Команды:
-/search [запрос] - Поиск видео
-/concerts - Концерты
-/interviews - Интервью
-/help - Помощь"""
-    bot.send_message(message.chat.id, text, parse_mode='Markdown')
+/search Metallica Live 2024
+/search Metallica interview
+/concerts
+/interviews
+/help""", parse_mode='Markdown')
 
 @bot.message_handler(commands=['help'])
 def help(message):
-    text = """🎸 *Команды:*
+    bot.send_message(message.chat.id, """🎸 *Команды:*
 
 /search [запрос] - Поиск
 /concerts - Из базы
 /interviews - Из базы
 /archive - Архив
-/stats - Статистика
 
 Примеры:
-/search Metallica Live 2024
-/search interview Lars Ulrich
-/search M72 World Tour"""
-    bot.send_message(message.chat.id, text, parse_mode='Markdown')
+/search Metallica Live concert
+/search M72 World Tour
+/search Lars Ulrich interview""", parse_mode='Markdown')
 
 @bot.message_handler(commands=['search'])
 def search(message):
     query = message.text.replace('/search', '').strip()
     if not query:
-        bot.send_message(message.chat.id, "Введите: /search [запрос]\nПример: /search Metallica Live 2024")
+        bot.send_message(message.chat.id, "Введите: /search [запрос]")
         return
     
     bot.send_message(message.chat.id, f"🔍 Ищу: *{query}*...", parse_mode='Markdown')
     
-    videos = search_youtube(f"Metallica {query}")
-    
-    if not videos:
-        videos = search_youtube_fallback(query)
+    videos = search_youtube(query)
     
     if videos:
         text = f"🎸 *Найдено {len(videos)} видео:*\n\n"
         for i, video in enumerate(videos[:10], 1):
             text += f"{i}. {format_video(video)}\n\n"
-        
-        text += "━━━━━━━━━━━━━━━━━━\n🎉 Найденные видео сохранены в базу!"
+            save_video(video)
         
         bot.send_message(message.chat.id, text, parse_mode='Markdown', disable_web_page_preview=True)
-        
-        for video in videos:
-            save_video_to_db(video)
     else:
-        bot.send_message(message.chat.id, """😔 Видео не найдено.
+        bot.send_message(message.chat.id, """😔 Ничего не найдено.
 
-Попробуйте другой запрос:
+Попробуйте:
 /search Metallica live concert
 /search Metallica full show
-/search James Hetfield interview""")
+/search interview""")
 
 @bot.message_handler(commands=['concerts'])
 def concerts(message):
-    videos = get_concerts()
-    if videos:
-        text = "🎸 *Концерты Metallica*\n\n"
-        for row in videos:
-            text += format_video_row(row) + "\n\n"
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("SELECT * FROM videos WHERE content_type='concert' ORDER BY duration_seconds DESC LIMIT 10")
+    rows = c.fetchall()
+    conn.close()
+    
+    if rows:
+        text = "🎸 *Концерты:*\n\n"
+        for row in rows:
+            text += f"• {row[2]}\n🔗 {row[3]}\n"
         bot.send_message(message.chat.id, text, parse_mode='Markdown')
     else:
-        bot.send_message(message.chat.id, """😔 Концерты не найдены.
-
-Используйте /search для поиска:
-/search Metallica live concert
-/search full show""")
+        bot.send_message(message.chat.id, "База пуста. Используйте /search")
 
 @bot.message_handler(commands=['interviews'])
 def interviews(message):
-    videos = get_interviews()
-    if videos:
-        text = "🎤 *Интервью Metallica*\n\n"
-        for row in videos:
-            text += format_video_row(row) + "\n\n"
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    c.execute("SELECT * FROM videos WHERE content_type='interview' ORDER BY duration_seconds DESC LIMIT 10")
+    rows = c.fetchall()
+    conn.close()
+    
+    if rows:
+        text = "🎤 *Интервью:*\n\n"
+        for row in rows:
+            text += f"• {row[2]}\n🔗 {row[3]}\n"
         bot.send_message(message.chat.id, text, parse_mode='Markdown')
     else:
-        bot.send_message(message.chat.id, """😔 Интервью не найдены.
-
-Используйте /search:
-/search Metallica interview""")
+        bot.send_message(message.chat.id, "База пуста. Используйте /search")
 
 @bot.message_handler(commands=['archive'])
 def archive(message):
-    concerts = get_concerts()
-    interviews = get_interviews()
-    text = f"""📦 *Архив Metallica*
-
-🎸 Концертов: {len(concerts)}
-🎤 Интервью: {len(interviews)}
-📦 Всего: {len(concerts) + len(interviews)}
-
-/search [запрос] - Поиск новых!"""
-    bot.send_message(message.chat.id, text, parse_mode='Markdown')
-
-@bot.message_handler(commands=['stats'])
-def stats(message):
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
     c.execute("SELECT COUNT(*) FROM videos WHERE content_type='concert'")
@@ -285,32 +221,22 @@ def stats(message):
     c.execute("SELECT COUNT(*) FROM videos WHERE content_type='interview'")
     interviews = c.fetchone()[0]
     conn.close()
-    text = f"""📊 *Статистика*
+    bot.send_message(message.chat.id, f"""📦 *Архив*
 
 🎸 Концертов: {concerts}
 🎤 Интервью: {interviews}
 📦 Всего: {concerts + interviews}
 
-/search [запрос] - Поиск!"""
-    bot.send_message(message.chat.id, text, parse_mode='Markdown')
+/search [запрос] - Поиск!""", parse_mode='Markdown')
 
-def format_video_row(row):
-    duration = row[7] if row[7] else 0
-    hours = duration // 3600
-    minutes = (duration % 3600) // 60
-    tour = row[5] if row[5] else 'Metallica'
-    return f"""🎸 *{row[2]}*
-⏱️ {hours}:{minutes:02d} | 🏷️ {tour}
-🔗 [Смотреть]({row[3]})"""
-
-@bot.message_handler(func=lambda message: True)
-def echo(message):
-    if message.text and not message.text.startswith('/'):
-        bot.send_message(message.chat.id, "Используйте /search [запрос]\nНапример: /search Metallica Live 2024")
+@bot.message_handler(func=lambda m: True)
+def echo(m):
+    if m.text and not m.text.startswith('/'):
+        bot.send_message(m.chat.id, "Используйте /search [запрос]")
     else:
-        bot.send_message(message.chat.id, "Неизвестная команда. /help")
+        bot.send_message(m.chat.id, "Неизвестная команда. /help")
 
 if __name__ == "__main__":
     init_db()
-    print("🎸 Metallica Archive Bot запущен!")
+    print("🎸 Bot started!")
     bot.infinity_polling()
