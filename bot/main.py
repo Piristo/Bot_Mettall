@@ -2,6 +2,7 @@ import telebot
 import sqlite3
 import requests
 import os
+from urllib.parse import quote
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 bot = telebot.TeleBot(TOKEN)
@@ -25,9 +26,11 @@ def init_db():
     conn.close()
 
 def search_youtube(query):
-    """Поиск через RSS ленту YouTube"""
+    """Поиск через YouTube (поддержка русского языка)"""
     try:
-        url = f"https://www.youtube.com/results?search_query=Metallica+{query.replace(' ', '+')}&sp=EgIYAQ%253D%253D"
+        # Кодируем запрос для URL
+        encoded_query = quote(query)
+        url = f"https://www.youtube.com/results?search_query=Metallica+{encoded_query}&sp=EgIYAQ%253D%253D"
         headers = {"User-Agent": "Mozilla/5.0"}
         response = requests.get(url, headers=headers, timeout=10)
         
@@ -35,7 +38,6 @@ def search_youtube(query):
             import re
             videos = []
             
-            # Ищем видео в HTML
             pattern = r'"videoId":"([^"]+)"'
             ids = re.findall(pattern, response.text)
             
@@ -46,16 +48,14 @@ def search_youtube(query):
             durations = re.findall(pattern_duration, response.text)
             
             for i, vid_id in enumerate(ids[:10]):
-                if vid_id:
-                    title = titles[i] if i < len(titles) else "Metallica Video"
+                if vid_id and i < len(titles):
+                    title = titles[i]
                     duration = parse_duration(durations[i]) if i < len(durations) else 0
                     
-                    # Определяем тип
                     content_type = "concert"
-                    if any(kw in title.lower() for kw in ["interview", "talk", "conversation", "q&a"]):
+                    if any(kw in title.lower() for kw in ["interview", "talk", "conversation", "q&a", "интервью"]):
                         content_type = "interview"
                     
-                    # Определяем тур
                     tour = detect_tour(title)
                     
                     videos.append({
