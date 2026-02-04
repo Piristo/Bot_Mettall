@@ -1,0 +1,116 @@
+{
+  "tours": [
+    {
+      "name": "Kill 'Em All Tour",
+      "start_date": "1983-07-01",
+      "end_date": "1984-08-20",
+      "album": "Kill 'Em All",
+      "description": "Первый тур в поддержку дебютного альбома"
+    },
+    {
+      "name": "Ride the Lightning Tour",
+      "start_date": "1984-08-21",
+      "end_date": "1986-06-03",
+      "album": "Ride the Lightning",
+      "description": "Тур в поддержку второго альбома"
+    },
+    {
+      "name": "Master of Puppets Tour",
+      "start_date": "1986-06-04",
+      "end_date": "1988-06-27",
+      "album": "Master of Puppets",
+      "description": "Тур в поддержку третьего альбома"
+    },
+    {
+      "name": "...And Justice for All Tour",
+      "start_date": "1988-06-28",
+      "end_date": "1990-09-22",
+      "album": "...And Justice for All",
+      "description": "Тур в поддержку четвертого альбома"
+    },
+    {
+      "name": "Black Album World Tour",
+      "start_date": "1991-06-04",
+      "end_date": "1993-11-24",
+      "album": "Metallica (Black Album)",
+      "description": "Мировой тур в поддержку пятого альбома"
+    },
+    {
+      "name": "Load Tour",
+      "start_date": "1996-06-04",
+      "end_date": "1997-08-24",
+      "album": "Load",
+      "description": "Тур в поддержку альбома Load"
+    },
+    {
+      "name": "ReLoad Tour",
+      "start_date": "1997-11-04",
+      "end_date": "1998-11-30",
+      "album": "ReLoad",
+      "description": "Тур в поддержку альбома ReLoad"
+    },
+    {
+      "name": "Garage Inc. Tour",
+      "start_date": "1998-11-21",
+      "end_date": "1999-12-31",
+      "album": "Garage Inc.",
+      "description": "Тур в поддержку Garage Inc."
+    },
+    {
+      "name": "Summer Tour 2000",
+      "start_date": "2000-06-02",
+      "end_date": "2000-08-20",
+      "album": "Metallica",
+      "description": "Летний тур 2000 года"
+    },
+    {
+      "name": "Madly in Anger with the World Tour",
+      "start_date": "2003-10-12",
+      "end_date": "2004-08-14",
+      "album": "St. Anger",
+      "description": "Тур в поддержку St. Anger"
+    },
+    {
+      "name": "Escape from the Studio '06",
+      "start_date": "2006-05-09",
+      "end_date": "2006-10-08",
+      "album": "Metallica",
+      "description": "Первый тур после 8-летнего перерыва"
+    },
+    {
+      "name": "World Magnetic Tour",
+      "start_date": "2008-10-21",
+      "end_date": "2010-06-12",
+      "album": "Death Magnetic",
+      "description": "Тур в поддержку Death Magnetic"
+    },
+    {
+      "name": "European Tour 2011",
+      "start_date": "2011-04-20",
+      "end_date": "2011-06-18",
+      "album": "Death Magnetic",
+      "description": "Европейский тур 2011 года"
+    },
+    {
+      "name": "WorldWired Tour",
+      "start_date": "2016-11-02",
+      "end_date": "2019-10-25",
+      "album": "Hardwired... to Self-Destruct",
+      "description": "Тур в поддержку Hardwired... to Self-Destruct"
+    },
+    {
+      "name": "S&M2 Tour",
+      "start_date": "2019-09-06",
+      "end_date": "2019-10-25",
+      "album": "S&M2",
+      "description": "Концерты с симфоническим оркестром"
+    },
+    {
+      "name": "M72 World Tour",
+      "start_date": "2023-04-27",
+      "end_date": "2026-10-25",
+      "album": "Metallica",
+      "description": "Текущий тур без разогревных артистов"
+    }
+  ]
+}

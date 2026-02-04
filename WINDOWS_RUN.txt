@@ -1,0 +1,29 @@
+ЗАПУСК БОТА В WINDOWS
+
+Шаг 1: Откройте командную строку
+- Нажмите Win + R
+- Введите cmd
+- Нажмите Enter
+
+Шаг 2: Перейдите в папку с ботом
+- Введите: cd C:\Users\Nikolay\Desktop\AGSkill\Timon\metallica-archive-bot
+- Нажмите Enter
+
+Шаг 3: Запустите Docker
+- Введите: docker-compose up -d
+- Нажмите Enter
+
+Шаг 4: Проверьте статус
+- Введите: docker ps
+- Нажмите Enter
+- Должно быть два контейнера: metallica-bot и metallica-redis
+
+Шаг 5: Посмотреть логи
+- Введите: docker logs metallica-bot
+- Нажмите Enter
+
+ОСТАНОВКА БОТА
+- Введите: docker-compose down
+- Нажмите Enter
+
+ВАЖНО: Перед запуском добавьте токены в файл .env

@@ -1,0 +1,48 @@
+# Запуск на домашнем ПК (терминал должен быть открыт)
+
+1. Установите:
+```cmd
+pip install pyTelegramBotAPI requests
+```
+
+2. Создайте папки:
+```cmd
+mkdir data logs
+```
+
+3. Запустите:
+```cmd
+python bot/main.py
+```
+
+---
+
+# Запуск 24/7 на сервере (бесплатно)
+
+## Вариант 1: Railway.app
+
+1. Зарегистрируйтесь: https://railway.app
+2. Создайте новый проект из GitHub
+3. Загрузите файлы на GitHub
+4. Подключите репозиторий к Railway
+5. Добавьте переменную: TOKEN=ваш_токен
+6. Нажмите Deploy
+
+## Вариант 2: Render.com
+
+1. Зарегистрируйтесь: https://render.com
+2. New Web Service
+3. Подключите GitHub репозиторий
+4. Build Command: пусто
+5. Start Command: python bot/main.py
+6. Add Environment Variable: TOKEN=ваш_токен
+7. Create Web Service
+
+## Вариант 3: PythonAnywhere
+
+1. Зарегистрируйтесь: https://www.pythonanywhere.com
+2. Open a bash console
+3. git clone ваш_репозиторий
+4. pip install pyTelegramBotAPI requests
+5. Создайте файл ваш_бот.py с кодом
+6. Нажмите Run
