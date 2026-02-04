@@ -6,8 +6,9 @@ import json
 from datetime import datetime
 import requests
 import time
+import os
 
-TOKEN = "YOUR_BOT_TOKEN_HERE"
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 
 bot = telebot.TeleBot(TOKEN)
 
