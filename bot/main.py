@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import os
 
+from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
@@ -13,7 +15,24 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def main():
+async def start_health_server() -> None:
+    app = web.Application()
+
+    async def health(_: web.Request) -> web.Response:
+        return web.Response(text="ok")
+
+    app.router.add_get("/health", health)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+
+    port = int(os.getenv("PORT", "10000"))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    logger.info("Health server started on port %s", port)
+
+
+async def start_bot() -> None:
     if not TELEGRAM_BOT_TOKEN:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is not set. Update .env file.")
 
@@ -27,6 +46,13 @@ async def main():
 
     logger.info("Starting Metallica Archive Bot...")
     await dp.start_polling(bot)
+
+
+async def main():
+    await asyncio.gather(
+        start_health_server(),
+        start_bot()
+    )
 
 
 if __name__ == "__main__":
