@@ -1,8 +1,9 @@
-from bot.constants import SEARCH_QUERIES, EXCLUDE_KEYWORDS
+from bot.constants import SEARCH_QUERIES
 from services.youtube.api import YouTubeSearch
 from services.classifier.content import ContentClassifier
 from services.quality.scorer import QualityScorer
 from utils.tour_detector import TourDetector
+from utils.date_parser import DateParser
 from database.repository import VideoRepository
 from database.models import AsyncSessionLocal
 import asyncio
@@ -37,7 +38,7 @@ class YouTubeCrawler:
             videos = await self.search.search_concerts(query) if "concert" in query.lower() or "live" in query.lower() else await self.search.search_interviews(query)
             
             for video in videos:
-                if self.search.should_exclude(video.get('title', ''), video.get('description', '')):
+                if self.search.should_exclude(video.get('title', ''), video.get('description', ''), video.get('channel_title', '')):
                     continue
                 
                 enriched = await self.search.enrich_video_data(video)
@@ -50,12 +51,23 @@ class YouTubeCrawler:
                 
                 is_complete = self.scorer.is_complete(enriched, content_type)
                 enriched['is_complete'] = is_complete
+
+                if not is_complete:
+                    continue
                 
                 quality_tags = self.scorer.get_tags(enriched)
                 enriched['quality_tags'] = " • ".join(quality_tags) if quality_tags else ""
                 
                 tour_name = self.tour_detector.detect_tour(enriched.get('title', ''))
                 enriched['tour_name'] = tour_name
+
+                title_date = DateParser.extract_date_from_title(enriched.get('title', ''))
+                published_at = enriched.get('published_at')
+                if hasattr(published_at, "date"):
+                    published_date = published_at.date()
+                else:
+                    published_date = DateParser.parse_youtube_date(str(published_at or ""))
+                enriched['date_event'] = title_date or published_date
                 
                 enriched['search_query'] = query
                 enriched['is_official'] = self.scorer.is_official_channel(enriched.get('channel_title', ''))
@@ -67,23 +79,24 @@ class YouTubeCrawler:
         return all_videos
     
     async def crawl_concerts(self) -> List[Dict[str, Any]]:
-        return await self._crawl_by_type("concerts")
+        return await self._crawl_by_type("concert")
     
     async def crawl_interviews(self) -> List[Dict[str, Any]]:
-        return await self._crawl_by_type("interviews")
+        return await self._crawl_by_type("interview")
     
     async def _crawl_by_type(self, content_type: str) -> List[Dict[str, Any]]:
         all_videos = []
-        queries = SEARCH_QUERIES.get(content_type, [])
+        query_key = "concerts" if content_type == "concert" else "interviews"
+        queries = SEARCH_QUERIES.get(query_key, [])
         
         for query in queries:
-            if content_type == "concerts":
+            if content_type == "concert":
                 videos = await self.search.search_concerts(query)
             else:
                 videos = await self.search.search_interviews(query)
             
             for video in videos:
-                if self.search.should_exclude(video.get('title', ''), video.get('description', '')):
+                if self.search.should_exclude(video.get('title', ''), video.get('description', ''), video.get('channel_title', '')):
                     continue
                 
                 enriched = await self.search.enrich_video_data(video)
@@ -94,12 +107,23 @@ class YouTubeCrawler:
                 
                 is_complete = self.scorer.is_complete(enriched, content_type)
                 enriched['is_complete'] = is_complete
+
+                if not is_complete:
+                    continue
                 
                 quality_tags = self.scorer.get_tags(enriched)
                 enriched['quality_tags'] = " • ".join(quality_tags) if quality_tags else ""
                 
                 tour_name = self.tour_detector.detect_tour(enriched.get('title', ''))
                 enriched['tour_name'] = tour_name
+
+                title_date = DateParser.extract_date_from_title(enriched.get('title', ''))
+                published_at = enriched.get('published_at')
+                if hasattr(published_at, "date"):
+                    published_date = published_at.date()
+                else:
+                    published_date = DateParser.parse_youtube_date(str(published_at or ""))
+                enriched['date_event'] = title_date or published_date
                 
                 enriched['search_query'] = query
                 enriched['is_official'] = self.scorer.is_official_channel(enriched.get('channel_title', ''))

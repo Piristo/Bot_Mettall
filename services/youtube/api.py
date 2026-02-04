@@ -1,7 +1,8 @@
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from bot.config import YOUTUBE_API_KEY
-from bot.constants import EXCLUDE_KEYWORDS
+from bot.constants import EXCLUDE_KEYWORDS, METALLICA_REQUIRED_KEYWORDS
+from utils.date_parser import DateParser
 import asyncio
 from typing import Dict, List, Optional, Any
 
@@ -27,6 +28,8 @@ class YouTubeAPI:
     ) -> List[Dict[str, Any]]:
         if not self.api_key:
             return []
+
+        await self.get_client()
         
         try:
             loop = asyncio.get_event_loop()
@@ -69,6 +72,8 @@ class YouTubeAPI:
     async def get_video_details(self, video_ids: List[str]) -> List[Dict[str, Any]]:
         if not video_ids or not self.api_key:
             return []
+
+        await self.get_client()
         
         try:
             loop = asyncio.get_event_loop()
@@ -110,18 +115,29 @@ class YouTubeSearch:
         self.api = YouTubeAPI()
     
     async def search_concerts(self, query: str) -> List[Dict[str, Any]]:
-        search_query = f"Metallica {query} concert live full show"
+        base = query if "metallica" in query.lower() else f"Metallica {query}"
+        search_query = f"{base} concert live full show"
         return await self.api.search_videos(search_query)
     
     async def search_interviews(self, query: str) -> List[Dict[str, Any]]:
-        search_query = f"Metallica {query} interview full"
+        base = query if "metallica" in query.lower() else f"Metallica {query}"
+        search_query = f"{base} interview full"
         return await self.api.search_videos(search_query)
     
-    def should_exclude(self, title: str, description: str = "") -> bool:
-        text = f"{title} {description}".lower()
+    def is_metallica_content(self, title: str, description: str, channel_title: str) -> bool:
+        text = f"{title} {description} {channel_title}".lower()
+        return any(keyword in text for keyword in METALLICA_REQUIRED_KEYWORDS)
+
+    def should_exclude(self, title: str, description: str = "", channel_title: str = "") -> bool:
+        text = f"{title} {description} {channel_title}".lower()
+
+        if not self.is_metallica_content(title, description, channel_title):
+            return True
+
         for keyword in EXCLUDE_KEYWORDS:
             if keyword.lower() in text:
                 return True
+
         return False
     
     async def enrich_video_data(self, video_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -130,12 +146,18 @@ class YouTubeSearch:
         
         if details:
             detail = details[0]
+            published_raw = detail.get('published_at') or video_data.get('published_at') or ""
             video_data.update({
                 'duration': detail.get('duration'),
                 'view_count': detail.get('view_count'),
-                'duration_seconds': self._parse_duration(detail.get('duration', ''))
+                'duration_seconds': self._parse_duration(detail.get('duration', '')),
+                'published_at': DateParser.parse_youtube_datetime(published_raw)
             })
-        
+        else:
+            published_raw = video_data.get('published_at') or ""
+            if published_raw:
+                video_data['published_at'] = DateParser.parse_youtube_datetime(published_raw)
+
         return video_data
     
     def _parse_duration(self, duration: str) -> int:

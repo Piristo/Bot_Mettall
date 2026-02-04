@@ -1,5 +1,4 @@
 from typing import Dict, Any
-from bot.constants import SEARCH_QUERIES
 
 class ContentClassifier:
     CONCERT_KEYWORDS = [

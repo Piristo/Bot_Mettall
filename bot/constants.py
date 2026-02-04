@@ -27,14 +27,17 @@ SEARCH_QUERIES = {
 
 EXCLUDE_KEYWORDS = [
     "part 1", "part 2", "part 3", "part 4", "part 5",
-    "clip", "sample", "preview", "trailer",
-    "medley", "cover", "tribute",
-    "teaser", "announcement",
+    "clip", "sample", "preview", "trailer", "teaser", "promo",
+    "medley", "cover", "tribute", "reaction", "review", "analysis",
+    "highlight", "highlights", "excerpt", "snippet", "shorts",
     "guitar lesson", "drum cover",
     "bass cover", "drummed", "instrumental",
-    "reaction", "review", "analysis",
     "behind the scenes", "making of",
     "music video", "official video"
+]
+
+METALLICA_REQUIRED_KEYWORDS = [
+    "metallica",
 ]
 
 QUALITY_INDICATORS = {

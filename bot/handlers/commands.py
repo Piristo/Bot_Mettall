@@ -33,7 +33,7 @@ async def cmd_concerts(message: Message):
     
     async with AsyncSessionLocal() as session:
         repo = VideoRepository(session)
-        videos = await repo.get_videos(content_type=CONTENT_TYPE_CONCERT, limit=10, offset=0)
+        videos = await repo.get_videos(content_type=CONTENT_TYPE_CONCERT, sort_by="date", sort_order="asc", limit=10, offset=0)
         count = await repo.get_videos_count(content_type=CONTENT_TYPE_CONCERT)
     
     if videos:
@@ -51,7 +51,7 @@ async def cmd_interviews(message: Message):
     
     async with AsyncSessionLocal() as session:
         repo = VideoRepository(session)
-        videos = await repo.get_videos(content_type=CONTENT_TYPE_INTERVIEW, limit=10, offset=0)
+        videos = await repo.get_videos(content_type=CONTENT_TYPE_INTERVIEW, sort_by="date", sort_order="asc", limit=10, offset=0)
         count = await repo.get_videos_count(content_type=CONTENT_TYPE_INTERVIEW)
     
     if videos:
@@ -69,7 +69,7 @@ async def cmd_archive(message: Message):
     
     async with AsyncSessionLocal() as session:
         repo = VideoRepository(session)
-        videos = await repo.get_videos(limit=10, offset=0)
+        videos = await repo.get_videos(sort_by="date", sort_order="asc", limit=10, offset=0)
         count = await repo.get_videos_count()
     
     if videos:
@@ -144,7 +144,7 @@ async def show_tour(message: Message, tour_name: str):
     
     async with AsyncSessionLocal() as session:
         repo = VideoRepository(session)
-        videos = await repo.get_videos(tour_name=tour_name, limit=10, offset=0)
+        videos = await repo.get_videos(tour_name=tour_name, sort_by="date", sort_order="asc", limit=10, offset=0)
         count = await repo.get_videos_count(tour_name=tour_name)
     
     if videos:
@@ -164,13 +164,25 @@ async def show_year(message: Message, year: int):
     
     async with AsyncSessionLocal() as session:
         repo = VideoRepository(session)
-        videos = await repo.get_videos(year=year, limit=10, offset=0)
-        count = await repo.get_videos_count(year=year)
+        concerts = await repo.get_videos(content_type=CONTENT_TYPE_CONCERT, year=year, sort_by="date", sort_order="asc", limit=10, offset=0)
+        interviews = await repo.get_videos(content_type=CONTENT_TYPE_INTERVIEW, year=year, sort_by="date", sort_order="asc", limit=10, offset=0)
+        concerts_count = await repo.get_videos_count(content_type=CONTENT_TYPE_CONCERT, year=year)
+        interviews_count = await repo.get_videos_count(content_type=CONTENT_TYPE_INTERVIEW, year=year)
     
-    if videos:
-        text = f"📅 **Metallica {year}** ({count} записей)\n\n"
-        for video in videos:
-            text += Formatter.format_video_card(video) + "\n"
+    if concerts or interviews:
+        total_count = concerts_count + interviews_count
+        text = f"📅 **Metallica {year}** ({total_count} записей)\n\n"
+
+        if concerts:
+            text += f"🎸 **Концерты** ({concerts_count})\n\n"
+            for video in concerts:
+                text += Formatter.format_video_card(video) + "\n"
+
+        if interviews:
+            text += f"🎤 **Интервью** ({interviews_count})\n\n"
+            for video in interviews:
+                text += Formatter.format_video_card(video) + "\n"
+
         await message.answer(text, parse_mode="Markdown")
     else:
         await message.answer(f"😔 Записи за {year} год не найдены", reply_markup=get_main_keyboard())

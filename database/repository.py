@@ -61,23 +61,20 @@ class VideoRepository:
         tour_name: Optional[str] = None,
         year: Optional[int] = None,
         quality_filter: Optional[str] = None,
-        sort_by: str = "date_event",
+        sort_by: str = "date",
+        sort_order: str = "asc",
         limit: int = 10,
         offset: int = 0
     ) -> List[Video]:
         query = select(Video)
+        date_expr = func.coalesce(Video.date_event, func.date(Video.published_at))
         
         if content_type:
             query = query.where(Video.content_type == content_type)
         if tour_name:
             query = query.where(Video.tour_name == tour_name)
         if year:
-            start_date = date(year, 1, 1)
-            end_date = date(year, 12, 31)
-            query = query.where(
-                Video.date_event >= start_date,
-                Video.date_event <= end_date
-            )
+            query = query.where(func.strftime('%Y', date_expr) == str(year))
         if quality_filter:
             if quality_filter == "HD":
                 query = query.where(Video.quality_score >= 60)
@@ -86,8 +83,9 @@ class VideoRepository:
             elif quality_filter == "COMPLETE":
                 query = query.where(Video.is_complete == True)
         
-        if sort_by == "date_event":
-            query = query.order_by(Video.date_event.desc())
+        order_desc = sort_order.lower() == "desc"
+        if sort_by == "date":
+            query = query.order_by(date_expr.desc() if order_desc else date_expr.asc(), Video.content_type.asc())
         elif sort_by == "quality_score":
             query = query.order_by(Video.quality_score.desc())
         elif sort_by == "view_count":
@@ -106,18 +104,14 @@ class VideoRepository:
         quality_filter: Optional[str] = None
     ) -> int:
         query = select(func.count(Video.id))
+        date_expr = func.coalesce(Video.date_event, func.date(Video.published_at))
         
         if content_type:
             query = query.where(Video.content_type == content_type)
         if tour_name:
             query = query.where(Video.tour_name == tour_name)
         if year:
-            start_date = date(year, 1, 1)
-            end_date = date(year, 12, 31)
-            query = query.where(
-                Video.date_event >= start_date,
-                Video.date_event <= end_date
-            )
+            query = query.where(func.strftime('%Y', date_expr) == str(year))
         if quality_filter:
             if quality_filter == "HD":
                 query = query.where(Video.quality_score >= 60)
@@ -136,11 +130,12 @@ class VideoRepository:
         return [t[0] for t in result.fetchall()]
     
     async def get_available_years(self) -> List[int]:
+        date_expr = func.coalesce(Video.date_event, func.date(Video.published_at))
         result = await self.session.execute(
-            select(func.strftime('%Y', Video.date_event))
+            select(func.strftime('%Y', date_expr))
             .distinct()
-            .where(Video.date_event.isnot(None))
-            .order_by(func.strftime('%Y', Video.date_event))
+            .where(date_expr.isnot(None))
+            .order_by(func.strftime('%Y', date_expr))
         )
         return [int(t[0]) for t in result.fetchall() if t[0]]
 

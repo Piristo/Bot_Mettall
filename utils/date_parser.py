@@ -13,6 +13,15 @@ class DateParser:
             return dt.date()
         except Exception:
             return None
+
+    @staticmethod
+    def parse_youtube_datetime(date_string: str) -> Optional[datetime]:
+        if not date_string:
+            return None
+        try:
+            return datetime.fromisoformat(date_string.replace('Z', '+00:00'))
+        except Exception:
+            return None
     
     @staticmethod
     def extract_year(title: str) -> Optional[int]:
@@ -28,7 +37,23 @@ class DateParser:
     def extract_date_from_title(title: str) -> Optional[date]:
         if not title:
             return None
-        
+
+        import re
+
+        iso_match = re.search(r'(19\d{2}|20\d{2})[-/.](0[1-9]|1[0-2])[-/.]([0-2]\d|3[01])', title)
+        if iso_match:
+            try:
+                return date(int(iso_match.group(1)), int(iso_match.group(2)), int(iso_match.group(3)))
+            except ValueError:
+                pass
+
+        euro_match = re.search(r'([0-2]\d|3[01])[./-](0[1-9]|1[0-2])[./-](19\d{2}|20\d{2})', title)
+        if euro_match:
+            try:
+                return date(int(euro_match.group(3)), int(euro_match.group(2)), int(euro_match.group(1)))
+            except ValueError:
+                pass
+
         year = DateParser.extract_year(title)
         if year:
             return date(year, 1, 1)

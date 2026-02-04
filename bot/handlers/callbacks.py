@@ -16,7 +16,7 @@ async def callback_concerts(callback: CallbackQuery):
     async with AsyncSessionLocal() as session:
         repo = VideoRepository(session)
         offset = (page - 1) * RESULTS_PER_PAGE
-        videos = await repo.get_videos(content_type=CONTENT_TYPE_CONCERT, limit=RESULTS_PER_PAGE, offset=offset)
+        videos = await repo.get_videos(content_type=CONTENT_TYPE_CONCERT, sort_by="date", sort_order="asc", limit=RESULTS_PER_PAGE, offset=offset)
         count = await repo.get_videos_count(content_type=CONTENT_TYPE_CONCERT)
     
     if videos:
@@ -39,7 +39,7 @@ async def callback_interviews(callback: CallbackQuery):
     async with AsyncSessionLocal() as session:
         repo = VideoRepository(session)
         offset = (page - 1) * RESULTS_PER_PAGE
-        videos = await repo.get_videos(content_type=CONTENT_TYPE_INTERVIEW, limit=RESULTS_PER_PAGE, offset=offset)
+        videos = await repo.get_videos(content_type=CONTENT_TYPE_INTERVIEW, sort_by="date", sort_order="asc", limit=RESULTS_PER_PAGE, offset=offset)
         count = await repo.get_videos_count(content_type=CONTENT_TYPE_INTERVIEW)
     
     if videos:
@@ -62,7 +62,7 @@ async def callback_archive(callback: CallbackQuery):
     async with AsyncSessionLocal() as session:
         repo = VideoRepository(session)
         offset = (page - 1) * RESULTS_PER_PAGE
-        videos = await repo.get_videos(limit=RESULTS_PER_PAGE, offset=offset)
+        videos = await repo.get_videos(sort_by="date", sort_order="asc", limit=RESULTS_PER_PAGE, offset=offset)
         count = await repo.get_videos_count()
     
     if videos:
@@ -100,7 +100,7 @@ async def callback_filter(callback: CallbackQuery):
     async with AsyncSessionLocal() as session:
         repo = VideoRepository(session)
         offset = 0
-        videos = await repo.get_videos(content_type=CONTENT_TYPE_CONCERT, quality_filter=quality_filter, limit=RESULTS_PER_PAGE, offset=offset)
+        videos = await repo.get_videos(content_type=CONTENT_TYPE_CONCERT, quality_filter=quality_filter, sort_by="date", sort_order="asc", limit=RESULTS_PER_PAGE, offset=offset)
         count = await repo.get_videos_count(content_type=CONTENT_TYPE_CONCERT, quality_filter=quality_filter)
     
     if videos:
@@ -110,8 +110,9 @@ async def callback_filter(callback: CallbackQuery):
             text += Formatter.format_video_card(video) + "\n"
         
         total_pages = (count + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE
-        await callback.message.edit_text(text, reply_markup=get_concerts_keyboard(page=1, total_pages=total_pages, quality_filter=quality_filter), parse_mode="Markdown")
+        await callback.message.edit_text(text, reply_markup=get_concerts_keyboard(page=1, total_pages=total_pages), parse_mode="Markdown")
     else:
+        filter_name = quality_filter if quality_filter else "Все"
         await callback.message.edit_text(f"Концерты с фильтром '{filter_name}' не найдены", reply_markup=get_concerts_keyboard(page=1, total_pages=1))
     
     await callback.answer()

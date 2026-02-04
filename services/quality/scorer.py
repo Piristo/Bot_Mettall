@@ -1,6 +1,7 @@
 from typing import Dict, Any
+import re
 from bot.config import CONCERT_MIN_DURATION, INTERVIEW_MIN_DURATION
-from bot.constants import QUALITY_INDICATORS
+from bot.constants import QUALITY_INDICATORS, EXCLUDE_KEYWORDS
 
 class QualityScorer:
     OFFICIAL_CHANNELS = [
@@ -14,9 +15,20 @@ class QualityScorer:
         channel_title = video_data.get('channel_title', '').lower()
         duration = video_data.get('duration_seconds', 0)
         view_count = video_data.get('view_count', 0)
+        description = video_data.get('description', '').lower()
+        text = f"{title} {description}"
         
         if self.is_official_channel(channel_title):
             score += 40
+
+        if title.startswith("metallica -"):
+            score += 30
+
+        if any(phrase in title for phrase in ["full concert", "full show", "live at", "complete show", "entire show"]):
+            score += 20
+
+        if re.search(r'(19\d{2}|20\d{2})', title):
+            score += 10
         
         for indicator in QUALITY_INDICATORS.get("hd", []):
             if indicator in title:
@@ -39,8 +51,11 @@ class QualityScorer:
             score += 10
         elif view_count > 10000:
             score += 5
+
+        if any(keyword in text for keyword in EXCLUDE_KEYWORDS):
+            score -= 50
         
-        return min(score, 100)
+        return max(min(score, 100), 0)
     
     def is_official_channel(self, channel_title: str) -> bool:
         if not channel_title:
@@ -52,7 +67,6 @@ class QualityScorer:
         title = video_data.get('title', '').lower()
         duration = video_data.get('duration_seconds', 0)
         
-        import re
         if re.search(r'part\s*\d+', title):
             return False
         
