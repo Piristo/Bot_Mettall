@@ -22,4 +22,4 @@ echo.
 echo Для остановки нажмите Ctrl+C
 echo.
 
-python bot\main.py
+python -m bot.main

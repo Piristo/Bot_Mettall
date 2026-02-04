@@ -62,7 +62,7 @@ run.bat
 
 Или напрямую:
 ```cmd
-python bot\main.py
+python -m bot.main
 ```
 
 ## 🎉 Готово!

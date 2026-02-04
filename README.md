@@ -62,7 +62,7 @@ pip install -r requirements.txt
 mkdir -p data logs
 
 # Запустите бота
-python bot/main.py
+python -m bot.main
 ```
 
 ### 4. Первый запуск

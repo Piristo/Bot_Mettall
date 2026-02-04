@@ -7,6 +7,8 @@ from utils.formatters import Formatter
 from bot.keyboards.inline import get_concerts_keyboard, get_interviews_keyboard, get_archive_keyboard, get_tours_keyboard
 from bot.keyboards.reply import get_main_keyboard
 from bot.constants import CONTENT_TYPE_CONCERT, CONTENT_TYPE_INTERVIEW
+from bot.config import YOUTUBE_API_KEY
+from services.youtube.search import YouTubeCrawler
 
 router = Router()
 
@@ -94,7 +96,17 @@ async def cmd_stats(message: Message):
 @router.message(Command("refresh"))
 async def cmd_refresh(message: Message):
     await message.answer("🔄 Запускаю обновление базы...\n\nЭто может занять несколько минут. Пожалуйста, подождите.", reply_markup=get_main_keyboard())
-    await message.answer("⚠️ Функция обновления пока недоступна. Требуется настройка YouTube API ключа.", reply_markup=get_main_keyboard())
+
+    if not YOUTUBE_API_KEY:
+        await message.answer("⚠️ YouTube API ключ не найден. Добавьте YOUTUBE_API_KEY в .env", reply_markup=get_main_keyboard())
+        return
+
+    try:
+        crawler = YouTubeCrawler()
+        videos_added = await crawler.sync_to_database()
+        await message.answer(Formatter.format_success(f"Обновление завершено. Добавлено: {videos_added}"), reply_markup=get_main_keyboard())
+    except Exception as exc:
+        await message.answer(Formatter.format_error(f"Ошибка обновления: {exc}"), reply_markup=get_main_keyboard())
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
@@ -138,6 +150,36 @@ async def cmd_default(message: Message):
             await message.answer("Укажите год: /year [1981-2026]", reply_markup=get_main_keyboard())
     else:
         await message.answer("Неизвестная команда. Используйте /help для списка команд.", reply_markup=get_main_keyboard())
+
+
+@router.message(F.text == "🎸 Концерты")
+async def text_concerts(message: Message):
+    await cmd_concerts(message)
+
+
+@router.message(F.text == "🎤 Интервью")
+async def text_interviews(message: Message):
+    await cmd_interviews(message)
+
+
+@router.message(F.text == "📦 Архив")
+async def text_archive(message: Message):
+    await cmd_archive(message)
+
+
+@router.message(F.text == "🔄 Обновить")
+async def text_refresh(message: Message):
+    await cmd_refresh(message)
+
+
+@router.message(F.text == "📊 Статистика")
+async def text_stats(message: Message):
+    await cmd_stats(message)
+
+
+@router.message(F.text == "📅 По годам")
+async def text_years(message: Message):
+    await message.answer("Введите год командой /year 1981-2026", reply_markup=get_main_keyboard())
 
 async def show_tour(message: Message, tour_name: str):
     await message.answer(f"🎫 Поиск тура: {tour_name}...")
