@@ -136,6 +136,25 @@ async def cmd_default(message: Message):
         await message.answer("Неизвестная команда. Используйте /help для списка команд.", reply_markup=get_main_keyboard())
         return
 
+    if text == "🎸 Концерты":
+        await cmd_concerts(message)
+        return
+    if text == "🎤 Интервью":
+        await cmd_interviews(message)
+        return
+    if text == "📦 Архив":
+        await cmd_archive(message)
+        return
+    if text == "🔄 Обновить":
+        await cmd_refresh(message)
+        return
+    if text == "📊 Статистика":
+        await cmd_stats(message)
+        return
+    if text == "📅 По годам":
+        await message.answer("Введите год командой /year 1981-2026", reply_markup=get_main_keyboard())
+        return
+
     if text.startswith("/tour"):
         parts = text.split()
         if len(parts) > 1:
