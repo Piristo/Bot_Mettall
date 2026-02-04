@@ -101,6 +101,14 @@ def get_years_keyboard(years: list) -> InlineKeyboardMarkup:
     return keyboard
 
 
+def get_start_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="▶️ Старт", callback_data="start_menu")]
+        ]
+    )
+
+
 def get_year_paging_keyboard(
     year: int,
     concert_page: int,

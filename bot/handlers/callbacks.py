@@ -162,6 +162,13 @@ async def callback_back(callback: CallbackQuery):
     await callback.message.answer("Главное меню:", reply_markup=get_main_keyboard())
     await callback.answer()
 
+
+@router.callback_query(F.data == "start_menu")
+async def callback_start_menu(callback: CallbackQuery):
+    from bot.keyboards.reply import get_main_keyboard
+    await callback.message.answer("Главное меню:", reply_markup=get_main_keyboard())
+    await callback.answer()
+
 @router.callback_query(F.data.startswith("filter_"))
 async def callback_filter(callback: CallbackQuery):
     filter_type = callback.data.split("_")[1]

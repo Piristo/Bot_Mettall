@@ -4,7 +4,7 @@ from aiogram.filters import Command, CommandStart
 from database.models import AsyncSessionLocal
 from database.repository import VideoRepository, SyncStatusRepository
 from utils.formatters import Formatter
-from bot.keyboards.inline import get_concerts_keyboard, get_interviews_keyboard, get_archive_keyboard, get_tours_keyboard, get_year_paging_keyboard, get_tour_paging_keyboard
+from bot.keyboards.inline import get_concerts_keyboard, get_interviews_keyboard, get_archive_keyboard, get_tours_keyboard, get_year_paging_keyboard, get_tour_paging_keyboard, get_start_keyboard
 from bot.keyboards.reply import get_main_keyboard
 from bot.constants import CONTENT_TYPE_CONCERT, CONTENT_TYPE_INTERVIEW, RESULTS_PER_PAGE
 from bot.config import YOUTUBE_API_KEY
@@ -17,17 +17,9 @@ async def cmd_start(message: Message):
     welcome_text = (
         "🎸 **Metallica Archive Bot**\n\n"
         "Добро пожаловать в архив лучших концертов и интервью Metallica!\n\n"
-        "📚 **Доступные команды:**\n"
-        "🎸 /concerts - Полные концерты\n"
-        "🎤 /interviews - Полные интервью\n"
-        "📦 /archive - Хронологический архив\n"
-        "🎫 /tour [название] - Концерты тура\n"
-        "📅 /year [год] - Записи за год\n"
-        "🔄 /refresh - Обновить базу\n"
-        "📊 /stats - Статистика\n\n"
-        "Используйте кнопки ниже для быстрого доступа:"
+        "Нажмите **Старт**, чтобы открыть меню команд."
     )
-    await message.answer(welcome_text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
+    await message.answer(welcome_text, reply_markup=get_start_keyboard(), parse_mode="Markdown")
 
 @router.message(Command("concerts"))
 async def cmd_concerts(message: Message):
