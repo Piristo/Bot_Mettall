@@ -3,7 +3,7 @@ from aiogram.types import CallbackQuery
 from database.models import AsyncSessionLocal
 from database.repository import VideoRepository
 from utils.formatters import Formatter
-from bot.keyboards.inline import get_concerts_keyboard, get_interviews_keyboard, get_archive_keyboard
+from bot.keyboards.inline import get_concerts_keyboard, get_interviews_keyboard, get_archive_keyboard, get_year_paging_keyboard, get_tour_paging_keyboard
 from bot.constants import CONTENT_TYPE_CONCERT, CONTENT_TYPE_INTERVIEW, RESULTS_PER_PAGE
 
 router = Router()
@@ -75,6 +75,84 @@ async def callback_archive(callback: CallbackQuery):
     else:
         await callback.message.edit_text("Записи не найдены", reply_markup=get_archive_keyboard(page, 1))
     
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("year_"))
+async def callback_year(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    if len(parts) < 3:
+        await callback.answer()
+        return
+
+    year = int(parts[1])
+    concert_page = 1
+    interview_page = 1
+
+    for part in parts[2:]:
+        if part.startswith("c"):
+            concert_page = int(part[1:])
+        elif part.startswith("i"):
+            interview_page = int(part[1:])
+
+    async with AsyncSessionLocal() as session:
+        repo = VideoRepository(session)
+        concert_offset = (concert_page - 1) * RESULTS_PER_PAGE
+        interview_offset = (interview_page - 1) * RESULTS_PER_PAGE
+
+        concerts = await repo.get_videos(content_type=CONTENT_TYPE_CONCERT, year=year, sort_by="date", sort_order="asc", limit=RESULTS_PER_PAGE, offset=concert_offset)
+        interviews = await repo.get_videos(content_type=CONTENT_TYPE_INTERVIEW, year=year, sort_by="date", sort_order="asc", limit=RESULTS_PER_PAGE, offset=interview_offset)
+        concerts_count = await repo.get_videos_count(content_type=CONTENT_TYPE_CONCERT, year=year)
+        interviews_count = await repo.get_videos_count(content_type=CONTENT_TYPE_INTERVIEW, year=year)
+
+    total_count = concerts_count + interviews_count
+    text = f"📅 **Metallica {year}** ({total_count} записей)\n\n"
+
+    if concerts:
+        text += f"🎸 **Концерты** ({concerts_count})\n\n"
+        for video in concerts:
+            text += Formatter.format_video_card(video) + "\n"
+
+    if interviews:
+        text += f"🎤 **Интервью** ({interviews_count})\n\n"
+        for video in interviews:
+            text += Formatter.format_video_card(video) + "\n"
+
+    concert_total_pages = (concerts_count + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE if concerts_count else 0
+    interview_total_pages = (interviews_count + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE if interviews_count else 0
+
+    keyboard = get_year_paging_keyboard(year, concert_page, concert_total_pages, interview_page, interview_total_pages)
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("tourpage_"))
+async def callback_tour_page(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    if len(parts) < 3:
+        await callback.answer()
+        return
+
+    page = int(parts[1])
+    tour_name = " ".join(parts[2:]).replace("_", " ")
+
+    async with AsyncSessionLocal() as session:
+        repo = VideoRepository(session)
+        offset = (page - 1) * RESULTS_PER_PAGE
+        videos = await repo.get_videos(tour_name=tour_name, sort_by="date", sort_order="asc", limit=RESULTS_PER_PAGE, offset=offset)
+        count = await repo.get_videos_count(tour_name=tour_name)
+
+    if videos:
+        text = f"🎫 **{tour_name}** ({count} записей)\n\n"
+        for video in videos:
+            text += Formatter.format_video_card(video) + "\n"
+
+        total_pages = (count + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE
+        keyboard = get_tour_paging_keyboard(tour_name, page, total_pages)
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="Markdown")
+    else:
+        await callback.message.edit_text(f"😔 Концерты тура \"{tour_name}\" не найдены", reply_markup=get_tour_paging_keyboard(tour_name, 1, 1))
+
     await callback.answer()
 
 @router.callback_query(F.data == "back_to_menu")

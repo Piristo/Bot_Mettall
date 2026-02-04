@@ -4,9 +4,9 @@ from aiogram.filters import Command, CommandStart
 from database.models import AsyncSessionLocal
 from database.repository import VideoRepository, SyncStatusRepository
 from utils.formatters import Formatter
-from bot.keyboards.inline import get_concerts_keyboard, get_interviews_keyboard, get_archive_keyboard, get_tours_keyboard
+from bot.keyboards.inline import get_concerts_keyboard, get_interviews_keyboard, get_archive_keyboard, get_tours_keyboard, get_year_paging_keyboard, get_tour_paging_keyboard
 from bot.keyboards.reply import get_main_keyboard
-from bot.constants import CONTENT_TYPE_CONCERT, CONTENT_TYPE_INTERVIEW
+from bot.constants import CONTENT_TYPE_CONCERT, CONTENT_TYPE_INTERVIEW, RESULTS_PER_PAGE
 from bot.config import YOUTUBE_API_KEY
 from services.youtube.search import YouTubeCrawler
 
@@ -131,15 +131,20 @@ async def cmd_help(message: Message):
 
 @router.message()
 async def cmd_default(message: Message):
-    if message.text.startswith("/tour"):
-        parts = message.text.split()
+    text = message.text or ""
+    if not text:
+        await message.answer("Неизвестная команда. Используйте /help для списка команд.", reply_markup=get_main_keyboard())
+        return
+
+    if text.startswith("/tour"):
+        parts = text.split()
         if len(parts) > 1:
             tour_name = " ".join(parts[1:])
             await show_tour(message, tour_name)
         else:
             await message.answer("Укажите название тура: /tour [название]", reply_markup=get_main_keyboard())
-    elif message.text.startswith("/year"):
-        parts = message.text.split()
+    elif text.startswith("/year"):
+        parts = text.split()
         if len(parts) > 1:
             try:
                 year = int(parts[1])
@@ -193,7 +198,8 @@ async def show_tour(message: Message, tour_name: str):
         text = f"🎫 **{tour_name}** ({count} записей)\n\n"
         for video in videos:
             text += Formatter.format_video_card(video) + "\n"
-        await message.answer(text, parse_mode="Markdown")
+        total_pages = (count + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE
+        await message.answer(text, reply_markup=get_tour_paging_keyboard(tour_name, 1, total_pages), parse_mode="Markdown")
     else:
         await message.answer(f"😔 Концерты тура \"{tour_name}\" не найдены", reply_markup=get_main_keyboard())
 
@@ -225,6 +231,9 @@ async def show_year(message: Message, year: int):
             for video in interviews:
                 text += Formatter.format_video_card(video) + "\n"
 
-        await message.answer(text, parse_mode="Markdown")
+        concert_total_pages = (concerts_count + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE if concerts_count else 0
+        interview_total_pages = (interviews_count + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE if interviews_count else 0
+        keyboard = get_year_paging_keyboard(year, 1, concert_total_pages, 1, interview_total_pages)
+        await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
     else:
         await message.answer(f"😔 Записи за {year} год не найдены", reply_markup=get_main_keyboard())

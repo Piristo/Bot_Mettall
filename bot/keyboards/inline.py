@@ -99,3 +99,54 @@ def get_years_keyboard(years: list) -> InlineKeyboardMarkup:
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
+
+
+def get_year_paging_keyboard(
+    year: int,
+    concert_page: int,
+    concert_total_pages: int,
+    interview_page: int,
+    interview_total_pages: int
+) -> InlineKeyboardMarkup:
+    rows = []
+
+    concert_row = []
+    if concert_total_pages > 0:
+        if concert_page > 1:
+            concert_row.append(InlineKeyboardButton(text="🎸 ⬅️", callback_data=f"year_{year}_c{concert_page-1}_i{interview_page}"))
+        concert_row.append(InlineKeyboardButton(text=f"🎸 {concert_page}/{concert_total_pages}", callback_data="page_info"))
+        if concert_page < concert_total_pages:
+            concert_row.append(InlineKeyboardButton(text="🎸 ➡️", callback_data=f"year_{year}_c{concert_page+1}_i{interview_page}"))
+    if concert_row:
+        rows.append(concert_row)
+
+    interview_row = []
+    if interview_total_pages > 0:
+        if interview_page > 1:
+            interview_row.append(InlineKeyboardButton(text="🎤 ⬅️", callback_data=f"year_{year}_c{concert_page}_i{interview_page-1}"))
+        interview_row.append(InlineKeyboardButton(text=f"🎤 {interview_page}/{interview_total_pages}", callback_data="page_info"))
+        if interview_page < interview_total_pages:
+            interview_row.append(InlineKeyboardButton(text="🎤 ➡️", callback_data=f"year_{year}_c{concert_page}_i{interview_page+1}"))
+    if interview_row:
+        rows.append(interview_row)
+
+    rows.append([InlineKeyboardButton(text="🔙 В меню", callback_data="back_to_menu")])
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def get_tour_paging_keyboard(tour_name: str, page: int, total_pages: int) -> InlineKeyboardMarkup:
+    rows = []
+
+    tour_slug = tour_name.replace(" ", "_")
+    row = []
+    if page > 1:
+        row.append(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"tourpage_{page-1}_{tour_slug}"))
+    row.append(InlineKeyboardButton(text=f"{page}/{total_pages}", callback_data="page_info"))
+    if page < total_pages:
+        row.append(InlineKeyboardButton(text="➡️ Далее", callback_data=f"tourpage_{page+1}_{tour_slug}"))
+    rows.append(row)
+
+    rows.append([InlineKeyboardButton(text="🔙 В меню", callback_data="back_to_menu")])
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
