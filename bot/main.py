@@ -17,6 +17,8 @@ INVIDIOUS_INSTANCES = [
     "yewtu.be",
     "invidious.snopyta.org",
     "invidious.kavin.rocks",
+    "invidious.tube",
+    "invidious.jingl.xyz",
 ]
 
 def init_db():
@@ -53,13 +55,21 @@ def get_interviews():
     return rows
 
 def search_youtube(query, max_results=10):
+    print(f"Searching for: {query}")
+    
     for instance in INVIDIOUS_INSTANCES:
         try:
             url = f"https://{instance}/api/v1/search"
             params = {"q": query, "type": "video", "max_results": max_results}
-            response = requests.get(url, params=params, timeout=10)
+            print(f"Trying: {instance}")
+            
+            response = requests.get(url, params=params, timeout=15)
+            print(f"Response status: {response.status_code}")
+            
             if response.status_code == 200:
                 data = response.json()
+                print(f"Found {len(data)} results")
+                
                 videos = []
                 for item in data:
                     if item.get("type") == "video":
@@ -67,13 +77,10 @@ def search_youtube(query, max_results=10):
                         title = item.get("title", "")
                         
                         content_type = "concert"
-                        keywords_concert = ["concert", "live", "performance", "show", "tour"]
-                        keywords_interview = ["interview", "talk", "conversation"]
+                        keywords_interview = ["interview", "talk", "conversation", "q&a", "press conference"]
                         
                         if any(kw in title.lower() for kw in keywords_interview):
                             content_type = "interview"
-                        elif any(kw in title.lower() for kw in keywords_concert):
-                            content_type = "concert"
                         
                         tour_name = detect_tour(title)
                         
@@ -84,34 +91,55 @@ def search_youtube(query, max_results=10):
                             "content_type": content_type,
                             "tour_name": tour_name,
                             "duration_seconds": duration,
-                            "quality_tags": "HD" if duration > 1800 else ""
+                            "quality_tags": "HD" if duration > 1800 else "SD"
                         })
-                return videos
-        except:
+                
+                if videos:
+                    return videos
+                    
+        except Exception as e:
+            print(f"Error with {instance}: {e}")
             continue
+    
+    return []
+
+def search_youtube_fallback(query):
+    print(f"Fallback search for: {query}")
+    
+    search_queries = [
+        f"Metallica {query} full concert",
+        f"Metallica {query} live",
+        f"Metallica {query} performance"
+    ]
+    
+    for sq in search_queries:
+        videos = search_youtube(sq, 5)
+        if videos:
+            return videos
+    
     return []
 
 def detect_tour(title):
     title_lower = title.lower()
     tours = {
-        "m72": ["m72", "72 tour"],
-        "worldwired": ["worldwired", "world wired"],
-        "world magnetic": ["world magnetic", "death magnetic"],
-        "black album": ["black album"],
-        "hardwired": ["hardwired"],
-        "st anger": ["st anger", "st. anger"],
-        "load": ["load"],
-        "reload": ["reload"],
-        "garage inc": ["garage inc"],
-        "justice": ["justice", "and justice"],
-        "master of puppets": ["master of puppets", "puppets"],
-        "ride the lightning": ["ride the lightning", "lightning"],
-        "kill em all": ["kill 'em all", "kill em all"],
+        "M72 World Tour": ["m72", "72 tour", "no repeat"],
+        "WorldWired Tour": ["worldwired", "world wired", "hardwired to self-destruct"],
+        "World Magnetic Tour": ["world magnetic", "death magnetic"],
+        "Black Album Tour": ["black album", "self-titled"],
+        "St. Anger Tour": ["st anger", "st. anger"],
+        "Load Tour": ["load tour", "load era"],
+        "ReLoad Tour": ["reload tour", "reload era"],
+        "Garage Inc. Tour": ["garage inc"],
+        "Justice Tour": ["and justice for all", "justice tour"],
+        "Master of Puppets Tour": ["master of puppets", "puppets tour"],
+        "Ride the Lightning Tour": ["ride the lightning", "lightning tour"],
+        "Kill 'Em All Tour": ["kill 'em all", "kill em all"],
     }
+    
     for tour, keywords in tours.items():
         for kw in keywords:
             if kw in title_lower:
-                return tour.title()
+                return tour
     return None
 
 def save_video_to_db(video):
@@ -126,43 +154,34 @@ def save_video_to_db(video):
                     video.get('duration_seconds', 0), video.get('quality_tags', '')))
         conn.commit()
         return True
-    except:
+    except Exception as e:
+        print(f"Save error: {e}")
         return False
     finally:
         conn.close()
-
-def format_video_row(row):
-    duration = row[7] if row[7] else 0
-    hours = duration // 3600
-    minutes = (duration % 3600) // 60
-    return f"""🎸 *{row[2]}*
-📍 {row[6] if row[6] else 'Unknown'}
-⏱️ {hours}:{minutes:02d}
-🔗 [Смотреть]({row[3]})
-⭐️ {row[8] if row[8] else 'HD'}
-━━━━━━━━━━━━━━━━━━"""
 
 def format_video(video):
     duration = video.get('duration_seconds', 0)
     hours = duration // 3600
     minutes = (duration % 3600) // 60
+    
+    tour = video.get('tour_name', 'Metallica')
+    quality = video.get('quality_tags', 'HD')
+    
     return f"""🎸 *{video['title']}*
-🔗 [Смотреть]({video['url']})
-⏱️ {hours}:{minutes:02d}
-🏷️ {video.get('tour_name', 'Metallica')}
-⭐️ {video.get('quality_tags', 'HD')}
-━━━━━━━━━━━━━━━━━━"""
+⏱️ {hours}:{minutes:02d} | 🏷️ {tour} | {quality}
+🔗 [Смотреть]({video['url']})"""
 
 @bot.message_handler(commands=['start'])
 def start(message):
     text = """🎸 *Metallica Archive Bot*
 
-Добро пожаловать! Бот ищет концерты и интервью Metallica.
+Бот для поиска концертов и интервью Metallica!
 
 Команды:
 /search [запрос] - Поиск видео
-/concerts - Концерты из базы
-/interviews - Интервью из базы
+/concerts - Концерты
+/interviews - Интервью
 /help - Помощь"""
     bot.send_message(message.chat.id, text, parse_mode='Markdown')
 
@@ -170,43 +189,50 @@ def start(message):
 def help(message):
     text = """🎸 *Команды:*
 
-/search [запрос] - Поиск концертов и интервью
-/concerts - Концерты из базы
-/interviews - Интервью из базы
-/archive - Весь архив
+/search [запрос] - Поиск
+/concerts - Из базы
+/interviews - Из базы
+/archive - Архив
 /stats - Статистика
 
-Пример: /search Metallica Live 2024"""
+Примеры:
+/search Metallica Live 2024
+/search interview Lars Ulrich
+/search M72 World Tour"""
     bot.send_message(message.chat.id, text, parse_mode='Markdown')
 
 @bot.message_handler(commands=['search'])
 def search(message):
     query = message.text.replace('/search', '').strip()
     if not query:
-        bot.send_message(message.chat.id, "Введите запрос: /search [текст]\nНапример: /search Metallica Live 2024")
+        bot.send_message(message.chat.id, "Введите: /search [запрос]\nПример: /search Metallica Live 2024")
         return
     
-    bot.send_message(message.chat.id, f"🔍 Ищу: {query}...")
+    bot.send_message(message.chat.id, f"🔍 Ищу: *{query}*...", parse_mode='Markdown')
     
     videos = search_youtube(f"Metallica {query}")
+    
+    if not videos:
+        videos = search_youtube_fallback(query)
     
     if videos:
         text = f"🎸 *Найдено {len(videos)} видео:*\n\n"
         for i, video in enumerate(videos[:10], 1):
-            text += f"{i}. {format_video(video)}\n"
+            text += f"{i}. {format_video(video)}\n\n"
         
-        if len(videos) > 10:
-            text += f"\n... и ещё {len(videos) - 10} видео"
+        text += "━━━━━━━━━━━━━━━━━━\n🎉 Найденные видео сохранены в базу!"
         
         bot.send_message(message.chat.id, text, parse_mode='Markdown', disable_web_page_preview=True)
         
-        save_all = input("Сохранить в базу? (y/n): ")
-        if save_all.lower() == 'y':
-            for video in videos:
-                save_video_to_db(video)
-            bot.send_message(message.chat.id, "✅ Сохранено в базу!")
+        for video in videos:
+            save_video_to_db(video)
     else:
-        bot.send_message(message.chat.id, "😔 Видео не найдено. Попробуйте другой запрос.")
+        bot.send_message(message.chat.id, """😔 Видео не найдено.
+
+Попробуйте другой запрос:
+/search Metallica live concert
+/search Metallica full show
+/search James Hetfield interview""")
 
 @bot.message_handler(commands=['concerts'])
 def concerts(message):
@@ -214,14 +240,14 @@ def concerts(message):
     if videos:
         text = "🎸 *Концерты Metallica*\n\n"
         for row in videos:
-            text += format_video_row(row) + "\n"
+            text += format_video_row(row) + "\n\n"
         bot.send_message(message.chat.id, text, parse_mode='Markdown')
     else:
         bot.send_message(message.chat.id, """😔 Концерты не найдены.
 
 Используйте /search для поиска:
-/search Metallica full concert
-/search Metallica live show""")
+/search Metallica live concert
+/search full show""")
 
 @bot.message_handler(commands=['interviews'])
 def interviews(message):
@@ -229,14 +255,13 @@ def interviews(message):
     if videos:
         text = "🎤 *Интервью Metallica*\n\n"
         for row in videos:
-            text += format_video_row(row) + "\n"
+            text += format_video_row(row) + "\n\n"
         bot.send_message(message.chat.id, text, parse_mode='Markdown')
     else:
         bot.send_message(message.chat.id, """😔 Интервью не найдены.
 
-Используйте /search для поиска:
-/search Metallica interview
-/search James Hetfield interview""")
+Используйте /search:
+/search Metallica interview""")
 
 @bot.message_handler(commands=['archive'])
 def archive(message):
@@ -248,7 +273,7 @@ def archive(message):
 🎤 Интервью: {len(interviews)}
 📦 Всего: {len(concerts) + len(interviews)}
 
-Используйте /search для поиска новых видео!"""
+/search [запрос] - Поиск новых!"""
     bot.send_message(message.chat.id, text, parse_mode='Markdown')
 
 @bot.message_handler(commands=['stats'])
@@ -266,13 +291,22 @@ def stats(message):
 🎤 Интервью: {interviews}
 📦 Всего: {concerts + interviews}
 
-/search [запрос] - Поиск новых видео"""
+/search [запрос] - Поиск!"""
     bot.send_message(message.chat.id, text, parse_mode='Markdown')
+
+def format_video_row(row):
+    duration = row[7] if row[7] else 0
+    hours = duration // 3600
+    minutes = (duration % 3600) // 60
+    tour = row[5] if row[5] else 'Metallica'
+    return f"""🎸 *{row[2]}*
+⏱️ {hours}:{minutes:02d} | 🏷️ {tour}
+🔗 [Смотреть]({row[3]})"""
 
 @bot.message_handler(func=lambda message: True)
 def echo(message):
     if message.text and not message.text.startswith('/'):
-        bot.send_message(message.chat.id, "Используйте /search для поиска\nНапример: /search Metallica Live 2024")
+        bot.send_message(message.chat.id, "Используйте /search [запрос]\nНапример: /search Metallica Live 2024")
     else:
         bot.send_message(message.chat.id, "Неизвестная команда. /help")
 
